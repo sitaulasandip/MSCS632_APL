@@ -5,7 +5,7 @@ from dataclasses import dataclass
 
 DAYS = ("Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday")
 SHIFTS = ("morning", "afternoon", "evening")
-CAPACITY = 2  # A shift is full when both required positions are assigned.
+CAPACITY = 2  # A shift is full when both required positions are assigned
 MAX_DAYS = 5
 
 
