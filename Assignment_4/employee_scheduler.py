@@ -25,11 +25,6 @@ def parse_preferences(value):
 
 
 def create_schedule(employees, seed=None):
-    """Try preferred shifts first, then randomly fill empty positions.
-
-    Restart if earlier choices leave a later day short of eligible employees.
-    Every attempt respects the daily and weekly limits.
-    """
     required = len(DAYS) * len(SHIFTS) * CAPACITY
     if len(employees) * MAX_DAYS < required:
         raise ValueError("At least 9 employees are needed to cover 42 weekly positions.")
