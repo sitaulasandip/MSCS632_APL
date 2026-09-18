@@ -16,6 +16,10 @@ public class EmployeeScheduler {
     static final List<String> SHIFTS = List.of("morning", "afternoon", "evening");
     static final int CAPACITY = 2;
     static final int MAX_DAYS = 5;
+    static final int DAILY_POSITIONS = SHIFTS.size() * CAPACITY;
+    static final int WEEKLY_POSITIONS = DAYS.length * DAILY_POSITIONS;
+    static final int MIN_EMPLOYEES = (WEEKLY_POSITIONS + MAX_DAYS - 1) / MAX_DAYS;
+    static final int MAX_ATTEMPTS = 1000;
 
     record Employee(String name, List<List<String>> preferences) { }
 
@@ -36,7 +40,15 @@ public class EmployeeScheduler {
     }
 
     static List<List<List<Integer>>> createSchedule(List<Employee> employees, Random random) {
-        if (employees.size() < 9) {
+        return createSchedule(employees, random, MAX_ATTEMPTS);
+    }
+
+    /** A one-attempt budget uses balanced coverage immediately. */
+    static List<List<List<Integer>>> createSchedule(List<Employee> employees, Random random, int attempts) {
+        if (attempts < 1) {
+            throw new IllegalArgumentException("At least one scheduling attempt is required.");
+        }
+        if (employees.size() < MIN_EMPLOYEES) {
             throw new IllegalArgumentException(
                 "At least 9 employees are needed to cover 42 weekly positions.");
         }
@@ -46,7 +58,7 @@ public class EmployeeScheduler {
             if (name.isEmpty() || !names.add(name)) {
                 throw new IllegalArgumentException("Employee names must be nonempty and unique.");
             }
-            if (employee.preferences().size() != 7) {
+            if (employee.preferences().size() != DAYS.length) {
                 throw new IllegalArgumentException("Each employee needs preferences for all seven days.");
             }
             for (List<String> ranking : employee.preferences()) {
@@ -58,14 +70,14 @@ public class EmployeeScheduler {
         }
 
         // Retry the week if early choices leave too few employees for a later day.
-        for (int attempt = 0; attempt < 1000; attempt++) {
+        for (int attempt = 0; attempt < attempts; attempt++) {
             List<List<List<Integer>>> schedule = new ArrayList<>();
             int[] daysWorked = new int[employees.size()];
             boolean complete = true;
 
-            for (int day = 0; day < 7; day++) {
+            for (int day = 0; day < DAYS.length; day++) {
                 List<List<Integer>> dailyShifts = new ArrayList<>();
-                for (int shift = 0; shift < 3; shift++) {
+                for (int shift = 0; shift < SHIFTS.size(); shift++) {
                     dailyShifts.add(new ArrayList<>());
                 }
                 boolean[] assignedToday = new boolean[employees.size()];
@@ -75,7 +87,7 @@ public class EmployeeScheduler {
                         available.add(index);
                     }
                 }
-                if (available.size() < 6) {
+                if (available.size() < DAILY_POSITIONS) {
                     complete = false;
                     break;
                 }
@@ -84,8 +96,15 @@ public class EmployeeScheduler {
                 Collections.shuffle(available, random);
                 available.sort(Comparator.comparingInt(index -> daysWorked[index]));
 
+                // On the final attempt, choose the least-worked employees first.
+                // Starting from zero, this keeps totals within one of each other:
+                // ceil(42 / employeeCount) <= 5, so full coverage is guaranteed.
+                if (attempt == attempts - 1) {
+                    available = new ArrayList<>(available.subList(0, DAILY_POSITIONS));
+                }
+
                 // Try everyone's first choice before second and third choices.
-                for (int rank = 0; rank < 3; rank++) {
+                for (int rank = 0; rank < SHIFTS.size(); rank++) {
                     for (int index : available) {
                         List<String> preferences = employees.get(index).preferences().get(day);
                         if (assignedToday[index] || rank >= preferences.size()) {
@@ -101,7 +120,7 @@ public class EmployeeScheduler {
                 }
 
                 // Fill shortages randomly without exceeding either employee limit.
-                for (int shift = 0; shift < 3; shift++) {
+                for (int shift = 0; shift < SHIFTS.size(); shift++) {
                     while (dailyShifts.get(shift).size() < CAPACITY) {
                         List<Integer> candidates = new ArrayList<>();
                         for (int index : available) {
@@ -121,9 +140,7 @@ public class EmployeeScheduler {
                 return schedule;
             }
         }
-        throw new IllegalArgumentException(
-            "No complete schedule found after 1000 attempts. Try again with new random choices. "
-            + "No partial schedule was accepted.");
+        throw new IllegalStateException("Balanced coverage fallback failed.");
     }
 
     static List<Employee> readEmployees(Scanner input) {
@@ -132,7 +149,7 @@ public class EmployeeScheduler {
             System.out.print("Number of employees (at least 9): ");
             try {
                 count = Integer.parseInt(input.nextLine().trim());
-                if (count < 9) {
+                if (count < MIN_EMPLOYEES) {
                     throw new NumberFormatException();
                 }
                 break;
@@ -177,9 +194,9 @@ public class EmployeeScheduler {
     static void printSchedule(List<Employee> employees, List<List<List<Integer>>> schedule) {
         System.out.println("\nFINAL WEEKLY SCHEDULE (two employees per shift)");
         int[] totals = new int[employees.size()];
-        for (int day = 0; day < 7; day++) {
+        for (int day = 0; day < DAYS.length; day++) {
             System.out.println("\n" + DAYS[day]);
-            for (int shift = 0; shift < 3; shift++) {
+            for (int shift = 0; shift < SHIFTS.size(); shift++) {
                 List<String> labels = new ArrayList<>();
                 for (int index : schedule.get(day).get(shift)) {
                     totals[index]++;
@@ -196,7 +213,7 @@ public class EmployeeScheduler {
         for (int index = 0; index < employees.size(); index++) {
             System.out.printf("  %s: %d/5%n", employees.get(index).name(), totals[index]);
             List<String> daysOff = new ArrayList<>();
-            for (int day = 0; day < 7; day++) {
+            for (int day = 0; day < DAYS.length; day++) {
                 boolean working = false;
                 for (List<Integer> shift : schedule.get(day)) {
                     if (shift.contains(index)) {
@@ -216,12 +233,12 @@ public class EmployeeScheduler {
         List<Employee> employees = new ArrayList<>();
         for (int index = 0; index < count; index++) {
             List<List<String>> preferences = new ArrayList<>();
-            for (int day = 0; day < 7; day++) {
+            for (int day = 0; day < DAYS.length; day++) {
                 List<String> ranking = new ArrayList<>();
                 if (conflicting) {
                     ranking.add("morning");
                 } else {
-                    for (int rank = 0; rank < 3; rank++) {
+                    for (int rank = 0; rank < SHIFTS.size(); rank++) {
                         ranking.add(SHIFTS.get((index + rank) % 3));
                     }
                 }

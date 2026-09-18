@@ -1,3 +1,5 @@
+"""Weekly employee scheduler. Run interactivel
+"""
 
 import random
 import sys
@@ -5,8 +7,12 @@ from dataclasses import dataclass
 
 DAYS = ("Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday")
 SHIFTS = ("morning", "afternoon", "evening")
-CAPACITY = 2  # A shift is full when both required positions are assigned
+CAPACITY = 2  # A shift is full when both required positions are assigned.
 MAX_DAYS = 5
+DAILY_POSITIONS = len(SHIFTS) * CAPACITY
+WEEKLY_POSITIONS = len(DAYS) * DAILY_POSITIONS
+MIN_EMPLOYEES = (WEEKLY_POSITIONS + MAX_DAYS - 1) // MAX_DAYS
+MAX_ATTEMPTS = 1000
 
 
 @dataclass
@@ -25,14 +31,19 @@ def parse_preferences(value):
 
 
 def create_schedule(employees, seed=None):
-    required = len(DAYS) * len(SHIFTS) * CAPACITY
-    if len(employees) * MAX_DAYS < required:
+    """Try preferred shifts first, then randomly fill empty positions.
+
+    Restart if earlier choices leave a later day short of eligible employees.
+    Every attempt respects the daily and weekly limits. The final attempt selects
+    the least-worked employees first to guarantee coverage for a valid roster.
+    """
+    if len(employees) < MIN_EMPLOYEES:
         raise ValueError("At least 9 employees are needed to cover 42 weekly positions.")
     names = [employee.name.strip().casefold() for employee in employees]
     if any(not name for name in names) or len(set(names)) != len(names):
         raise ValueError("Employee names must be nonempty and unique.")
     for employee in employees:
-        if len(employee.preferences) != 7:
+        if len(employee.preferences) != len(DAYS):
             raise ValueError("Each employee needs preferences for all seven days.")
         for ranking in employee.preferences:
             parse_preferences(",".join(ranking))
@@ -42,12 +53,12 @@ def create_schedule(employees, seed=None):
     rng = random.Random(seed)
 
     # Random choices can leave a later day short. Try a new week if that happens.
-    for attempt in range(1000):
+    for attempt in range(MAX_ATTEMPTS):
         schedule = []
         days_worked = {index: 0 for index in range(len(employees))}
         complete = True
 
-        for day in range(7):
+        for day in range(len(DAYS)):
             daily_shifts = [[], [], []]  # Morning, afternoon, evening.
             assigned_today = []
             available = []
@@ -56,7 +67,7 @@ def create_schedule(employees, seed=None):
                 if days_worked[index] < MAX_DAYS:
                     available.append(index)
 
-            if len(available) < 6:
+            if len(available) < DAILY_POSITIONS:
                 complete = False
                 break
 
@@ -64,8 +75,14 @@ def create_schedule(employees, seed=None):
             rng.shuffle(available)
             available.sort(key=lambda index: days_worked[index])
 
+            # The final attempt balances workload before considering preferences.
+            # Totals stay within one of each other, so no employee needs more
+            # than ceil(42 / employee_count) <= 5 days for a valid roster.
+            if attempt == MAX_ATTEMPTS - 1:
+                available = available[:DAILY_POSITIONS]
+
             # Give everyone a chance at their first choice before second/third.
-            for rank in range(3):
+            for rank in range(len(SHIFTS)):
                 for index in available:
                     preferences = employees[index].preferences[day]
                     if index in assigned_today or rank >= len(preferences):
@@ -77,7 +94,7 @@ def create_schedule(employees, seed=None):
                         days_worked[index] += 1
 
             # Fill shortages randomly using employees still eligible that day.
-            for shift in range(3):
+            for shift in range(len(SHIFTS)):
                 while len(daily_shifts[shift]) < CAPACITY:
                     candidates = []
                     for index in available:
@@ -93,15 +110,14 @@ def create_schedule(employees, seed=None):
         if complete:
             return schedule
 
-    raise ValueError("No complete schedule found after 1000 attempts. "
-                     "Try again with new random choices. No partial schedule was accepted.")
+    raise RuntimeError("Balanced coverage fallback failed.")
 
 
 def read_employees():
     while True:
         try:
             count = int(input("Number of employees (at least 9): "))
-            if count < 9:
+            if count < MIN_EMPLOYEES:
                 raise ValueError()
             break
         except ValueError:
@@ -161,7 +177,7 @@ def demo_employees(count=9):
     employees = []
     for index in range(count):
         ranking = []
-        for rank in range(3):
+        for rank in range(len(SHIFTS)):
             ranking.append(SHIFTS[(index + rank) % 3])
         preferences = []
         for day in DAYS:
