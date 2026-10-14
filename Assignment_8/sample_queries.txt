@@ -1,0 +1,108 @@
+Sample Queries and Expected Output
+
+Basic Facts and Children
+
+?- parent(john, mary).
+true.
+
+?- male(john).
+true.
+
+?- female(mary).
+true.
+
+?- child(C, john).
+C = mary ;
+C = james.
+
+?- children_of(john, Children).
+Children = [james, mary].
+
+?- children_of(george, Children).
+Children = [john, linda, robert].
+
+?- children_of(olivia, Children).
+Children = [].
+
+?- mother(M, mary).
+M = karen.
+
+?- father(F, emma).
+F = paul.
+
+Grandparent
+
+?- grandparent(karen, sophia).
+true.
+
+?- grandparent(george, lucas).
+false.
+
+?- grandparent(G, lucas).
+G = john ;
+G = karen.
+
+?- grandchildren_of(george, L).
+L = [emma, james, mary, noah, olivia].
+
+?- great_grandchildren_of(george, L).
+L = [ava, lucas, sophia].
+
+Sibling
+
+?- sibling(mary, X).
+X = james.
+
+?- siblings_of(linda, L).
+L = [john, robert].
+
+?- siblings_of(olivia, L).
+L = [].
+
+?- sister(mary, james).
+true.
+
+?- brother(B, mary).
+B = james.
+
+Cousin
+
+?- cousin(emma, olivia).
+true.
+
+?- cousin(mary, james).
+false.
+
+?- cousin(mary, X).
+X = emma ;
+X = noah ;
+X = olivia.
+
+?- cousins_of(mary, L).
+L = [emma, noah, olivia].
+
+Descendants and Ancestors (Recursive)
+
+?- descendant(ava, elizabeth).
+true.
+
+?- descendant(D, mary).
+D = lucas ;
+D = sophia.
+
+?- ancestor(A, ava).
+A = emma ;
+A = daniel ;
+A = george ;
+A = elizabeth ;
+A = linda ;
+A = paul.
+
+?- ancestors_of(sophia, L).
+L = [elizabeth, george, john, karen, mary, thomas].
+
+?- descendants_of(linda, L).
+L = [ava, emma, noah].
+
+?- descendants_of(george, L).
+L = [ava, emma, james, john, linda, lucas, mary, noah, olivia, robert, sophia].
